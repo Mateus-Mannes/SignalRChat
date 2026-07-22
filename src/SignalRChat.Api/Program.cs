@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using SignalRChat.Api.Data;
 using SignalRChat.Api.Hubs;
 
@@ -19,6 +20,20 @@ builder.Services
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddAuthorization();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
 
 builder.Services.AddCors(options =>
 {
@@ -54,6 +69,17 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapIdentityApi<IdentityUser>();
-app.MapHub<ChatHub>("/chatHub");
+app.MapGet("/account/me", (ClaimsPrincipal user) =>
+    Results.Ok(new
+    {
+        email = user.Identity?.Name
+    }))
+    .RequireAuthorization();
+app.MapPost("/logout", async (SignInManager<IdentityUser> signInManager) =>
+{
+    await signInManager.SignOutAsync();
+    return Results.Ok();
+});
+app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
 
 app.Run();
