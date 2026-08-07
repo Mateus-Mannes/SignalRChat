@@ -1,5 +1,26 @@
 "use strict";
 
+function ensureAffinityCookie() {
+    var cookieName = "signalr_affinity";
+    var hasAffinityCookie = document.cookie
+        .split(";")
+        .some(function (cookie) {
+            return cookie.trim().startsWith(`${cookieName}=`);
+        });
+
+    if (hasAffinityCookie) {
+        return;
+    }
+
+    var affinityId = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    document.cookie = `${cookieName}=${encodeURIComponent(affinityId)}; Path=/; SameSite=Lax`;
+}
+
+ensureAffinityCookie();
+
 var hubUrl = window.signalRChat && window.signalRChat.hubUrl
     ? window.signalRChat.hubUrl
     : "/chatHub";

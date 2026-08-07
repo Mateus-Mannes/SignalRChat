@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 using System.Security.Claims;
 using SignalRChat.Api.Data;
 using SignalRChat.Api.Hubs;
@@ -11,6 +13,9 @@ var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=signalrchat.db";
+var redisConnectionString = builder.Configuration.GetConnectionString("redis");
+var instanceId = builder.Configuration["SignalRChat:InstanceId"]
+    ?? Environment.MachineName;
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(connectionString));
@@ -47,11 +52,28 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSignalR();
+var signalR = builder.Services.AddSignalR();
+
+if (!string.IsNullOrWhiteSpace(redisConnectionString))
+{
+    var redis = ConnectionMultiplexer.Connect(redisConnectionString);
+
+    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+    builder.Services
+        .AddDataProtection()
+        .SetApplicationName("SignalRChat")
+        .PersistKeysToStackExchangeRedis(redis, "SignalRChat-DataProtection-Keys");
+
+    signalR.AddStackExchangeRedis(redisConnectionString, options =>
+    {
+        options.Configuration.ChannelPrefix = RedisChannel.Literal("SignalRChat");
+    });
+}
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment()
+    && builder.Configuration.GetValue("Database:ApplyMigrations", true))
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -65,6 +87,13 @@ if (!app.Environment.IsDevelopment())
 
 app.UseRouting();
 app.UseCors();
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-SignalRChat-Instance"] = instanceId;
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -72,7 +101,8 @@ app.MapIdentityApi<IdentityUser>();
 app.MapGet("/account/me", (ClaimsPrincipal user) =>
     Results.Ok(new
     {
-        email = user.Identity?.Name
+        email = user.Identity?.Name,
+        instance = instanceId
     }))
     .RequireAuthorization();
 app.MapPost("/logout", async (SignInManager<IdentityUser> signInManager) =>
@@ -81,5 +111,10 @@ app.MapPost("/logout", async (SignInManager<IdentityUser> signInManager) =>
     return Results.Ok();
 });
 app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    instance = instanceId
+}));
 
 app.Run();
