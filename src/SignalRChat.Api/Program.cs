@@ -11,14 +11,11 @@ var builder = WebApplication.CreateBuilder(args);
 var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>()
     ?? ["http://localhost:5233"];
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Data Source=signalrchat.db";
 var redisConnectionString = builder.Configuration.GetConnectionString("redis");
 var instanceId = builder.Configuration["SignalRChat:InstanceId"]
     ?? Environment.MachineName;
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString));
+builder.AddNpgsqlDbContext<ApplicationDbContext>("signalrchat");
 
 builder.Services
     .AddIdentityApiEndpoints<IdentityUser>()
@@ -73,7 +70,7 @@ if (!string.IsNullOrWhiteSpace(redisConnectionString))
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment()
-    && builder.Configuration.GetValue("Database:ApplyMigrations", true))
+    && builder.Configuration.GetValue("Database:ApplyMigrations", false))
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
