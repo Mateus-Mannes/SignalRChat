@@ -22,11 +22,11 @@ Aspire starts and observes every resource. NGINX is the single browser-facing en
 
 The browser creates a random `signalr_affinity` cookie. NGINX consistently hashes that value to select an API replica. This keeps the negotiation request and subsequent WebSocket, Server-Sent Events, or Long Polling requests on the same server. It is routing affinity, not durable session storage.
 
-The client uses normal SignalR negotiation. `skipNegotiation` is not enabled, so WebSockets, Server-Sent Events, and Long Polling remain available. If an API process fails, the existing connection is lost; automatic reconnect and missed-message synchronization are intentionally deferred to Phase 7.
+The client uses normal SignalR negotiation. `skipNegotiation` is not enabled, so WebSockets, Server-Sent Events, and Long Polling remain available. If an API process fails, the existing connection is lost; automatic reconnect and missed-message synchronization are intentionally deferred to Phase 6.
 
 ## Shared state
 
-PostgreSQL stores ASP.NET Core Identity users and is shared by all API replicas. The first API replica applies Entity Framework migrations before later replicas become healthy. Phase 1 revisits whether migration ownership should become a dedicated Aspire resource.
+PostgreSQL stores ASP.NET Core Identity users and is shared by all API replicas. Because this is a local study application, the first API replica applies Entity Framework migrations before later replicas become healthy.
 
 Redis has two separate responsibilities:
 

@@ -30,27 +30,7 @@ Complete one phase at a time, including its tests and failure cases, before movi
 - Two users can exchange the existing non-persistent messages through different API replicas.
 - Registration, login, logout, cookie sharing, affinity, negotiation, WebSockets, SSE, Long Polling, and Redis cross-replica fan-out are covered by executable tests.
 
-## Phase 1 — Stabilize the shared database lifecycle
-
-- Keep PostgreSQL as the shared relational database introduced in Phase 0.
-- Move migration ownership from the first API replica to a dedicated migration resource if that exercise helps clarify startup responsibilities.
-- Add explicit database reset and seed tooling for repeatable study scenarios.
-- Add integration tests that prove both API replicas read and write the same database.
-
-### Decisions and concerns
-
-- Decide whether first-replica migration ownership is sufficient for the learning demo or whether to add a dedicated migration project now.
-- Decide whether reset/seed is a CLI command, a Development-only endpoint, or a one-shot Aspire resource.
-- Keep normal local data persistent while making every automated test run disposable and isolated.
-- Decide when the 1 GB study settings should be replaced by settings based on observed workload and available memory.
-
-### Completion criteria
-
-- Multiple API replicas read and write the same database.
-- Startup does not cause competing migrations.
-- A developer can deliberately reset and seed the study data.
-
-## Phase 2 — Add the chat domain
+## Phase 1 — Add the chat domain
 
 Introduce:
 
@@ -85,7 +65,7 @@ Database constraints:
 - Authenticated users can create a conversation with up to ten members.
 - Unauthorized users cannot inspect or modify it.
 
-## Phase 3 — Build the durable send path
+## Phase 2 — Build the durable send path
 
 Change `SendMessage` to accept:
 
@@ -121,7 +101,7 @@ Do not broadcast directly from the hub during this phase.
 - Retrying the same `clientMessageId` returns the existing message.
 - An acknowledged message always exists in the database with an outbox record.
 
-## Phase 4 — Add history and conversation UI
+## Phase 3 — Add history and conversation UI
 
 Add cursor-based history endpoints:
 
@@ -149,7 +129,7 @@ GET /conversations/{id}/messages?beforeSequence=100&limit=50
 - Pagination remains stable while new messages are being created.
 - Nonmembers receive no message history.
 
-## Phase 5 — Add authorized SignalR groups
+## Phase 4 — Add authorized SignalR groups
 
 - Use one SignalR group per conversation.
 - Add an authorized `JoinConversation` operation.
@@ -170,7 +150,7 @@ GET /conversations/{id}/messages?beforeSequence=100&limit=50
 - Messages are visible only to members of the relevant conversation.
 - Users connected to different API replicas receive the same group events through Redis.
 
-## Phase 6 — Implement the outbox delivery worker
+## Phase 5 — Implement the outbox delivery worker
 
 - Add a hosted worker that polls pending outbox records.
 - Atomically claim records using an owner and expiring lease.
@@ -197,7 +177,7 @@ Run a worker in every API replica initially to demonstrate competing consumers. 
 - Multiple workers do not normally process the same lease simultaneously.
 - A duplicate broadcast does not create a duplicate database message.
 
-## Phase 7 — Make the browser resilient
+## Phase 6 — Make the browser resilient
 
 - Enable `withAutomaticReconnect()`.
 - Generate one stable `clientMessageId` per user send and reuse it on retries.
@@ -223,7 +203,7 @@ Run a worker in every API replica initially to demonstrate competing consumers. 
 - Duplicate real-time deliveries do not appear twice.
 - Sequence gaps trigger recovery rather than silently losing messages.
 
-## Phase 8 — Add failure-oriented tests
+## Phase 7 — Add failure-oriented tests
 
 Use small deterministic tests and manual failure drills instead of load testing.
 
@@ -257,7 +237,7 @@ Test:
 - Clients recover gaps after reconnection.
 - Outbox failures are visible and recoverable.
 
-## Phase 9 — Add observability
+## Phase 8 — Add observability
 
 - Add structured logging with conversation, message, client message, sequence, outbox, user, and API-instance identifiers.
 - Trace durable-send, outbox-delivery, SignalR-broadcast, and synchronization operations.
@@ -276,7 +256,7 @@ Test:
 - A message can be followed from client command through storage, outbox, worker, and recipient.
 - Forced failures have an obvious explanation in the Aspire dashboard.
 
-## Phase 10 — Study the production-scale evolution
+## Phase 9 — Study the production-scale evolution
 
 Do not implement this phase unless it supports a specific learning goal. Document how the local components would evolve:
 
