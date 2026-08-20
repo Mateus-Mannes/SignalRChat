@@ -49,6 +49,41 @@ public sealed class BaselineBrowserTests(AppHostFixture fixture)
         await Expect(secondPage.Locator("#authStatus")).ToHaveTextAsync("Not logged in");
     }
 
+    [Fact]
+    public async Task Owner_can_manage_a_conversation_and_member_can_leave_through_the_UI()
+    {
+        var affinities = await fixture.FindDistinctAffinitiesAsync();
+        await using var ownerContext = await CreateContextAsync(affinities.FirstAffinity);
+        await using var memberContext = await CreateContextAsync(affinities.SecondAffinity);
+        var ownerPage = await ownerContext.NewPageAsync();
+        var memberPage = await memberContext.NewPageAsync();
+        var ownerEmail = $"browser-owner-{Guid.NewGuid():N}@example.test";
+        var memberEmail = $"browser-member-{Guid.NewGuid():N}@example.test";
+        var conversationName = $"Browser conversation {Guid.NewGuid():N}";
+
+        await RegisterAsync(memberPage, memberEmail);
+        await RegisterAsync(ownerPage, ownerEmail);
+
+        await ownerPage.Locator("#conversationNameInput").FillAsync(conversationName);
+        await ownerPage.Locator("#createConversationButton").ClickAsync();
+        await Expect(ownerPage.Locator("#selectedConversationName")).ToHaveTextAsync(conversationName);
+
+        await ownerPage.Locator("#memberEmailInput").FillAsync(memberEmail);
+        await ownerPage.Locator("#addMemberButton").ClickAsync();
+        await Expect(ownerPage.Locator("#membersList")).ToContainTextAsync(memberEmail);
+        await Expect(ownerPage.Locator("#conversationStatus")).ToHaveTextAsync("Member added.");
+
+        await memberPage.Locator("#refreshConversationsButton").ClickAsync();
+        await Expect(memberPage.Locator("#selectedConversationName")).ToHaveTextAsync(conversationName);
+        await Expect(memberPage.Locator("#leaveConversationButton")).ToBeVisibleAsync();
+
+        await memberPage.Locator("#leaveConversationButton").ClickAsync();
+        await Expect(memberPage.Locator("#conversationStatus"))
+            .ToHaveTextAsync("You left the conversation.");
+        await Expect(memberPage.Locator("#conversationSelect"))
+            .ToHaveValueAsync(string.Empty);
+    }
+
     private async Task<IBrowserContext> CreateContextAsync(string affinity)
     {
         var context = await Browser.NewContextAsync(new BrowserNewContextOptions

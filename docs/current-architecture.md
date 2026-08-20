@@ -72,7 +72,7 @@ The xUnit integration suite verifies:
 - Owner/member permissions, immediate access loss, leaving, removal, and reactivation.
 - The ten-member limit under two concurrent requests routed to different API replicas.
 
-The Playwright Chromium test creates two independent browser contexts, assigns them to different API replicas, registers two users, and verifies two-way cross-replica messaging and logout through the actual UI.
+The Playwright Chromium tests create independent browser contexts on different API replicas. They verify two-way cross-replica messaging and exercise conversation creation, adding a registered member, discovering the conversation from the other browser, and leaving it through the UI.
 
 ## Current phase boundary
 
@@ -81,7 +81,7 @@ The Playwright Chromium test creates two independent browser contexts, assigns t
 - The browser does not reconnect or synchronize missed messages.
 - Delivery acknowledgment, idempotency, per-conversation sequencing, and the outbox do not exist yet.
 - Cosmos DB and Azure Service Bus are not part of the runtime yet.
-- Conversation management has no browser UI yet; Phase 1 exposes authenticated HTTP APIs only.
+- The browser has intentionally basic conversation and membership controls for studying the Phase 1 APIs. Selecting a conversation does not scope SignalR messages yet.
 - API failover ends a live connection even though a later reconnect could select a healthy replica.
 
 The `X-SignalRChat-Instance` response header is intentionally retained to make routing behavior visible in tests and browser developer tools.

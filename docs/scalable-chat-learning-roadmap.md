@@ -54,6 +54,8 @@ Add APIs for:
 - Enforcing the ten-member limit.
 - Retrieving a conversation only when the caller is a member.
 
+Add a deliberately basic browser UI for creating and selecting conversations and for adding, removing, or leaving memberships. The global chat remains separate until durable messages and authorized SignalR groups exist.
+
 PostgreSQL constraints:
 
 - Unique membership per conversation and user.
@@ -145,7 +147,7 @@ GET /conversations/{id}/messages?beforeSequence=100&limit=50
 - Use `beforeSequence` for loading older history.
 - Authorize through PostgreSQL, then query the specified Cosmos DB conversation partition.
 - Return only `message` documents, ordered by sequence, with pagination metadata.
-- Add a basic conversation list, selected conversation, membership controls, and history view.
+- Extend the existing conversation list and membership controls with a history view.
 - Build the UI against the Phase 1 `/conversations` route already exposed through NGINX.
 
 ### Decisions and concerns

@@ -21,9 +21,76 @@
             <span id="authStatus">Not logged in</span>
         </div>
     </div>
+    <div id="conversationPanel" hidden>
+        <div class="row p-1">
+            <div class="col-6">
+                <hr />
+                <h2 class="h5">Conversations</h2>
+                <p class="text-muted mb-2">
+                    Membership demo only. Messages are still broadcast globally in this phase.
+                </p>
+            </div>
+        </div>
+        <div class="row p-1">
+            <div class="col-2">Name</div>
+            <div class="col-4">
+                <input type="text" class="w-100" id="conversationNameInput" maxlength="100" />
+            </div>
+        </div>
+        <div class="row p-1">
+            <div class="col-6 text-end">
+                <input type="button" id="createConversationButton" value="Create" />
+                <input type="button" id="refreshConversationsButton" value="Refresh" />
+            </div>
+        </div>
+        <div class="row p-1">
+            <div class="col-6">
+                <span id="conversationStatus" aria-live="polite"></span>
+            </div>
+        </div>
+        <div class="row p-1">
+            <div class="col-2">Conversation</div>
+            <div class="col-4">
+                <select class="w-100" id="conversationSelect"></select>
+            </div>
+        </div>
+        <div id="conversationDetails" hidden>
+            <div class="row p-1">
+                <div class="col-6">
+                    <strong id="selectedConversationName"></strong>
+                    <span id="selectedConversationSummary" class="text-muted"></span>
+                </div>
+            </div>
+            <div id="ownerMembershipControls">
+                <div class="row p-1">
+                    <div class="col-2">Member email</div>
+                    <div class="col-4">
+                        <input type="email" class="w-100" id="memberEmailInput" />
+                    </div>
+                </div>
+                <div class="row p-1">
+                    <div class="col-6 text-end">
+                        <input type="button" id="addMemberButton" value="Add member" />
+                    </div>
+                </div>
+            </div>
+            <div class="row p-1">
+                <div class="col-2">Members</div>
+                <div class="col-4">
+                    <ul id="membersList" class="mb-0"></ul>
+                </div>
+            </div>
+            <div class="row p-1">
+                <div class="col-6 text-end">
+                    <input type="button" id="leaveConversationButton" value="Leave conversation" hidden />
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="row p-1">
         <div class="col-6">
             <hr />
+            <h2 class="h5">Global chat</h2>
         </div>
     </div>
     <div class="row p-1">
