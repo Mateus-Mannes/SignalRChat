@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.SignalR.Client;
 
 namespace SignalRChat.IntegrationTests;
 
-public sealed class BaselineTopologyTests(AppHostFixture fixture) : IClassFixture<AppHostFixture>
+[Collection(AspireTopologyCollection.Name)]
+public sealed class BaselineTopologyTests(AppHostFixture fixture)
 {
     [Fact]
     public async Task Nginx_serves_the_web_application()

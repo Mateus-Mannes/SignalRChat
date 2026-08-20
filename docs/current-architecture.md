@@ -1,6 +1,6 @@
-# Current Architecture — Phase 0
+# Current Architecture — Phase 1
 
-Phase 0 is an executable baseline for learning. It deliberately keeps global, non-persistent chat messages so later phases can introduce conversations, durable messages, the outbox, and reconnect synchronization one concept at a time.
+Phase 1 adds the relational conversation domain while retaining the Phase 0 SignalR behavior. PostgreSQL now owns users, conversations, memberships, and roles. Chat messages are still global and non-persistent so durable Cosmos DB messages can be introduced independently in Phase 2.
 
 ## Request and message flow
 
@@ -10,13 +10,29 @@ Browser A ─┐
 Browser B ─┘                           │
                                       ├──> SignalRChat.Api 1 ─┐
                                       └──> SignalRChat.Api 2 ─┤──> PostgreSQL
-                                                              │
-                                      Redis <─────────────────┘
-                                        │
+                                                              │      ├── Identity users
+                                      Redis <─────────────────┘      ├── Conversations
+                                        │                            └── Memberships
                                         └── SignalR backplane fan-out
 ```
 
-Aspire starts and observes every resource. NGINX is the single browser-facing endpoint. `/`, static assets, and Razor Pages go to the web process. `/register`, `/login`, `/logout`, `/account/*`, and `/chatHub` go to the API pool.
+Aspire starts and observes every resource. NGINX is the single browser-facing endpoint. `/`, static assets, and Razor Pages go to the web process. `/register`, `/login`, `/logout`, `/account/*`, `/conversations`, and `/chatHub` go to the API pool.
+
+## Conversation domain
+
+`Conversation` has a GUID, a trimmed name, an immutable creator, and a UTC creation time. `ConversationMember` uses `(ConversationId, UserId)` as its key and stores an `Owner` or `Member` role, join time, and optional leave time.
+
+Creating a conversation also creates its owner membership in the same EF Core save operation. The owner is permanent in Phase 1. Ordinary members can leave, and the owner can remove them. Leaving or removal sets `LeftAtUtc`; it does not delete the row. Re-adding that user reactivates the row with a new join time.
+
+Only active members can retrieve a conversation or its member list. The API deliberately returns the same `404 conversation_not_found` response for a missing conversation and one hidden from the caller. The conversation list is newest-first and uses a bounded opaque cursor.
+
+## Cross-replica membership consistency
+
+One conversation can contain at most ten active members, including its owner. This is an application invariant because a normal relational check constraint cannot count other rows.
+
+Each add, remove, leave, or reactivation operation starts a PostgreSQL transaction and obtains `SELECT ... FOR UPDATE` on the conversation row before inspecting membership. Requests for one conversation are therefore serialized even when they reach different API replicas. The active count is checked only after the lock, preventing two requests from both claiming the tenth slot.
+
+Aspire's PostgreSQL integration configures EF Core connection resiliency. The complete row-lock transaction runs through EF Core's execution strategy so manually created transactions remain compatible with that retry behavior.
 
 ## SignalR affinity and transports
 
@@ -26,7 +42,7 @@ The client uses normal SignalR negotiation. `skipNegotiation` is not enabled, so
 
 ## Shared state
 
-PostgreSQL stores ASP.NET Core Identity users and is shared by all API replicas. Because this is a local study application, the first API replica applies Entity Framework migrations before later replicas become healthy.
+PostgreSQL stores ASP.NET Core Identity users plus conversation metadata and is shared by all API replicas. Because this is a local study application, the first API replica applies Entity Framework migrations before later replicas become healthy.
 
 Redis has two separate responsibilities:
 
@@ -41,7 +57,7 @@ Normal AppHost runs use named Docker volumes for PostgreSQL and Redis and expose
 
 Automated tests launch the same AppHost model with two API replicas, disposable container data, and random host ports. This prevents a test run from changing normal development data or colliding with a manually running AppHost.
 
-## Executable baseline
+## Executable behavior
 
 The xUnit integration suite verifies:
 
@@ -52,15 +68,20 @@ The xUnit integration suite verifies:
 - SignalR negotiation advertises WebSockets, Server-Sent Events, and Long Polling.
 - A client can connect explicitly with each transport.
 - Redis carries the current `Clients.All` broadcast between different API replicas.
+- Conversation creation, normalized names, duplicate names, retrieval, and cursor pagination.
+- Owner/member permissions, immediate access loss, leaving, removal, and reactivation.
+- The ten-member limit under two concurrent requests routed to different API replicas.
 
 The Playwright Chromium test creates two independent browser contexts, assigns them to different API replicas, registers two users, and verifies two-way cross-replica messaging and logout through the actual UI.
 
-## Known limitations frozen for Phase 0
+## Current phase boundary
 
-- Every message uses `Clients.All`; there are no conversations or membership checks.
+- Every chat message still uses `Clients.All`; it is not associated with the new conversations.
 - Chat messages are not stored and cannot be recovered after disconnecting.
 - The browser does not reconnect or synchronize missed messages.
 - Delivery acknowledgment, idempotency, per-conversation sequencing, and the outbox do not exist yet.
+- Cosmos DB and Azure Service Bus are not part of the runtime yet.
+- Conversation management has no browser UI yet; Phase 1 exposes authenticated HTTP APIs only.
 - API failover ends a live connection even though a later reconnect could select a healthy replica.
 
 The `X-SignalRChat-Instance` response header is intentionally retained to make routing behavior visible in tests and browser developer tools.

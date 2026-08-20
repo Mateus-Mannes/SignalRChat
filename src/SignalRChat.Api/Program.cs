@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System.Security.Claims;
 using SignalRChat.Api.Data;
+using SignalRChat.Api.Features.Conversations;
 using SignalRChat.Api.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +23,10 @@ builder.Services
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddAuthorization();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ConversationExceptionHandler>();
+builder.Services.AddScoped<ConversationService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.SameSite = SameSiteMode.Lax;
@@ -82,12 +87,17 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseExceptionHandler();
 app.UseRouting();
 app.UseCors();
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["X-SignalRChat-Instance"] = instanceId;
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-SignalRChat-Instance"] = instanceId;
+        return Task.CompletedTask;
+    });
     await next();
 });
 
@@ -107,6 +117,7 @@ app.MapPost("/logout", async (SignInManager<IdentityUser> signInManager) =>
     await signInManager.SignOutAsync();
     return Results.Ok();
 });
+app.MapConversationEndpoints();
 app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
 app.MapGet("/health", () => Results.Ok(new
 {
